@@ -1,0 +1,11 @@
+name = "Kavr"
+uuid = "a763bc00-0572-42e3-a6f5-261ace103c52"
+authors = ["dominicchang <dchang3419@hotmail.com>"]
+version = "0.1.0"
+
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Elliptic = "b305315f-e792-5b7a-8f41-49f472929428"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
