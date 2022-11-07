@@ -1,3 +1,4 @@
+using Revise
 using Kavr
 using CairoMakie
 
@@ -33,9 +34,9 @@ function plot(αmax, βmax, rmin, rmax, n, a, steps, θs, θo, B, βfluid, count
 
     #νθ = θo > θs 
 
-    νθtrue = cos(θs)< abs(cos(θo)) ? (θo>θs) ⊻ (n%2==1) : false
-
-    νθfalse = cos(θs)< abs(cos(θo)) ? (θo>θs) ⊻ (n%2==1) : true
+    isincone = abs(cos(θs)) < abs(cos(θo))
+    νθtrue =  isincone ? (n%2==1) ⊻ (θo > θs) : false ⊻ (θs > π/2)
+    νθfalse =  isincone ? (n%2==1) ⊻ (θo > θs) : true ⊻ (θs > π/2)
     for _i in 1:(2steps)
         α = αvals[_i]
         for _j in 1:(2steps)
@@ -66,7 +67,7 @@ function plot(αmax, βmax, rmin, rmax, n, a, steps, θs, θo, B, βfluid, count
     ticky = reduce(vcat,transpose.(cosvals))
 
     arrows!(ax2, .-αvals, βvals, .-tickx, ticky, arrowhead = ' ')
-    if abs(cos(θo)) > cos(θs)
+    if abs(cos(θo)) > abs(cos(θs))
         rsvals .+= rsvals2
         contour!(ax1, .-αvals, βvals, reduce(vcat,transpose.(rsvals)),  levels=rmin:(rmax - rmin)/10:rmax)
     else 
@@ -80,12 +81,13 @@ function plot(αmax, βmax, rmin, rmax, n, a, steps, θs, θo, B, βfluid, count
     display(f)
 end
 
-a = -1.0
-αmax = 10
-βmax = 10
-steps = 40
+a = 1
+αmax = 1e3
+βmax = 1e3
+steps = 100
 n = 0
-θs = (60)*π/180
+θo = (180-60)*π/180
+θs = (90)*π/180
 back = true
 
 βv = 0.71
@@ -95,7 +97,7 @@ back = true
 B = [sin(ι)*cos(ϕz), sin(ι)*sin(ϕz), cos(ι)]
 βfluid = [βv, θz, ϕz]
 rmin = 1 + √(1-a^2) 
-rmax = 10
+rmax = 1e3
 
 count = 0
 @time for i in range( 1, 179, length=179)
@@ -103,7 +105,7 @@ count = 0
     if θo == θs || (180-i)*π/180 == θs
         continue
     end
-    plot(αmax, βmax, rmin, rmax, 0, a,steps, θs, θo, B, βfluid, count)
+    plot(αmax, βmax, rmin, rmax, n, a,steps, θs, θo, B, βfluid, count)
     count +=1
 end
 

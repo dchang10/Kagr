@@ -125,8 +125,7 @@ Returns η values on the critical curve associated with a given r.
 get_root_diffs(r1, r2, r3, r4) = r2 - r1, r3 - r1, r3 - r2, r4 - r1, r4 - r2
 
 function rs(α, β, θs, θo, a, isindir, n) 
-
-    if cos(θs) > abs(cos(θo))
+    if abs(cos(θs)) > abs(cos(θo))
         αmin = αboundary(a, θs)
         βbound = (abs(α) >= αmin ? βboundary(α, θo, a, θs) : 0.)
         if abs(β) < βbound
@@ -391,15 +390,14 @@ function _Gθ(signβ, θs, θo, a, isindir, n, η, λ)
   k = m
 
   isvortical = η < 0.
-  #args, argo = !isvortical ? (cos(θs)/√(up), cos(θo)/√(up)) :  ((cos(θs)^2 - um)/(up-um), (cos(θo)^2 - um)/(up-um))
   args, argo, k = isvortical ? ((cos(θs)^2 - um)/(up-um), (cos(θo)^2 - um)/(up-um), 1. - m) : (cos(θs)/√(up), cos(θo)/√(up), m)
   if isvortical 
     if (!(0. < argo < 1.) ||  !(0. < args <  1.))
       return Inf, isvortical
     end
     tempfac = 1/√abs(um*a^2)
-    Go = tempfac*Elliptic.F(asin(√argo), k)
-    Gs = tempfac*Elliptic.F(asin(√args), k)
+    Go = ((θs > π/2) ? -1 : 1)*tempfac*Elliptic.F(asin(√argo), k)
+    Gs = ((θs > π/2) ? -1 : 1)*tempfac*Elliptic.F(asin(√args), k)
     Ghat = 2tempfac*Elliptic.K(k)
 
   else
@@ -412,19 +410,17 @@ function _Gθ(signβ, θs, θo, a, isindir, n, η, λ)
     Ghat = 2tempfac*Elliptic.K(k)
   end
  
-  isincone = cos(θs) < abs(cos(θo))
-  if isincone && (isindir != ((signβ > 0) ⊻ (θo > π/2)))
-      return Inf, isvortical
+  isincone = abs(cos(θs)) < abs(cos(θo))
+  νθ =  isincone ? (n%2==1) ⊻ (θo > θs) : !isindir ⊻ (θs > π/2) 
+  if isincone && (isindir != ((signβ > 0) ⊻ (θo > π/2) ))
+    return Inf, isvortical
   end
-
-  if (((signβ < 0) ⊻ (n%2==1)) && !isincone && !isvortical) || (isvortical && θo >= π/2)
+  if ((((signβ < 0) ⊻ (θs > π/2)) ⊻ (n%2==1)) && !isincone && !isvortical) || (isvortical && ((θo >= π/2) ⊻ (θs > π/2)))
     return Inf, isvortical
   end
 
-  νθ =  cos(θs) < abs(cos(θo)) ? (θo > θs) ⊻ (n%2==1) : !isindir
   minotime = real(isindir ? (n+1)*Ghat -signβ*Go + (νθ ? 1 : -1)*Gs : n*Ghat - signβ*Go + (νθ ? 1 : -1)*Gs ) #Sign of Go indicates whether the ray is from the forward cone or the rear cone
-
-    return minotime, isvortical
+  return minotime, isvortical
 end 
 
 ##----------------------------------------------------------------------------------------------------------------------

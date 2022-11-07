@@ -1,5 +1,95 @@
 using Kavr
 using Test
+using JSON
+
+function make_pol_data_field(αmax, βmax, n, a, steps, θs, θo, B, βfluid)
+    rh = 1 + √(1-a^2)
+
+    αvals = LinRange(-αmax,αmax, 2steps)
+    βvals = LinRange(-βmax, βmax, 2steps)
+    rsvals = [zeros(2steps) for _ in 1:2steps]
+    rsvals2 = [zeros(2steps) for _ in 1:2steps]
+    rootvals = [zeros(2steps) for _ in 1:2steps]
+    sinvals = [zeros(2steps) for _ in 1:2steps]#[Vector{Float64}(0.0 ,2steps) for _ in 1:2steps]
+    cosvals = [zeros(2steps) for _ in 1:2steps]#[Vector{Float64}(0.0 ,2steps) for _ in 1:2steps]
+
+    isincone = abs(cos(θs)) < abs(cos(θo))
+    νθtrue =  isincone ? (n%2==1) ⊻ (θo > θs) : false ⊻ (θs > π/2)
+    νθfalse =  isincone ? (n%2==1) ⊻ (θo > θs) : true ⊻ (θs > π/2)
+    
+    for _i in 1:(2steps)
+        α = αvals[_i]
+        for _j in 1:(2steps)
+            β = βvals[_j]
+            rstemp, νrtemp, numroots = rs(α, β, θs, θo, a, true, n)
+            evalpol = (rstemp >= rh && rstemp != Inf)
+            sintemp, costemp =  evalpol ? calcPol(α, β, rstemp, θs, θo, a, B, βfluid, νrtemp, νθtrue) : (0., 0.)
+
+            rsvals[_i][_j] = rstemp
+            rootvals[_i][_j] = numroots
+            sinvals[_i][_j] = sintemp * αmax 
+            cosvals[_i][_j] = costemp * βmax
+
+            rstemp, νrtemp, numroots = rs(α, β, θs, θo, a, false, n)
+            evalpol = (rstemp >= rh && rstemp != Inf)
+            sintemp, costemp =  evalpol ? calcPol(α, β, rstemp, θs, θo, a, B, βfluid, νrtemp, νθfalse) : (0., 0.)
+
+            rsvals2[_i][_j] += rstemp
+            rootvals[_i][_j] = numroots
+            sinvals[_i][_j] = sintemp * αmax
+            cosvals[_i][_j] = costemp * βmax
+        end
+    end
+    if abs(cos(θo)) > abs(cos(θs))
+        rsvals .+= rsvals2
+    end
+
+    return rsvals, rootvals, sinvals, cosvals
+end
+
+
+
+function make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
+
+    αvals = LinRange(-αmax,αmax, 2steps)
+    βvals = LinRange(-βmax, βmax, 2steps)
+    rsvals = [zeros(2steps) for _ in 1:2steps]
+    rsvals2 = [zeros(2steps) for _ in 1:2steps]
+    rootvals = [zeros(2steps) for _ in 1:2steps]
+    
+    for _i in 1:(2steps)
+        α = αvals[_i]
+        for _j in 1:(2steps)
+            β = βvals[_j]
+            rstemp, νrtemp, numroots = rs(α, β, θs, θo, a, true, n)
+
+            rsvals[_i][_j] = rstemp
+            rootvals[_i][_j] = numroots
+
+            rstemp, νrtemp, numroots = rs(α, β, θs, θo, a, false, n)
+
+            rsvals2[_i][_j] += rstemp
+            rootvals[_i][_j] = numroots
+        end
+    end
+    if abs(cos(θo)) > abs(cos(θs))
+        rsvals .+= rsvals2
+    end
+
+    return rsvals, rootvals
+end
+
+struct RadialTest
+    αmax::Float64
+    βmax::Float64
+    n::Int
+    a::Float64
+    steps::Int
+    θs::Float64
+    θo::Float64
+    rsvals::Vector{Vector{Float64}}
+    rootsvals::Vector{Vector{Int}}
+end
 
 @testset "roots" begin
     # test Schwarzschild
@@ -22,3 +112,31 @@ using Test
         (roots[1] ≈ conj(roots[2])) && (roots[3] ≈ conj(roots[4]))all(isapprox.(map(x->real(x)+abs(imag(x))im, roots), map(x->real(x)+abs(imag(x))im, roots_ans), rtol=1e-5))
     end
 end
+
+@testset "emission_radius_field" begin
+    for radialTestData in readdir((@__DIR__)*"/radialTestData")
+        path = (@__DIR__)*"/radialTestData/"*readdir((@__DIR__)*"/radialTestData")[1]
+        data = JSON.parsefile(path)
+        αmax = data["αmax"]
+        βmax = data["βmax"]
+        steps = data["steps"]
+        rsvals = data["rsvals"]
+        θo = data["θo"]
+        θs = data["θs"]
+        a = data["a"]
+        n = data["n"]
+        rsvals = data["rsvals"]
+        rootsvals = data["rootsvals"]
+
+        testrsvals, testrootsvals = make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
+        @test begin
+             (abs(maximum(maximum.(rsvals .- testrsvals))) < eps())
+        end
+        @test begin
+             (abs(maximum(maximum.(rootsvals .- testrootsvals))) < 1)
+        end
+    end
+end
+
+
+    
