@@ -2,7 +2,7 @@ using Kavr
 using Test
 using JSON
 
-function make_pol_data_field(αmax, βmax, n, a, steps, θs, θo, B, βfluid)
+function _make_pol_data_field(αmax, βmax, n, a, steps, θs, θo, B, βfluid)
     rh = 1 + √(1-a^2)
 
     αvals = LinRange(-αmax,αmax, 2steps)
@@ -49,7 +49,7 @@ end
 
 
 
-function make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
+function _make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
 
     αvals = LinRange(-αmax,αmax, 2steps)
     βvals = LinRange(-βmax, βmax, 2steps)
@@ -79,17 +79,6 @@ function make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
     return rsvals, rootvals
 end
 
-struct RadialTest
-    αmax::Float64
-    βmax::Float64
-    n::Int
-    a::Float64
-    steps::Int
-    θs::Float64
-    θo::Float64
-    rsvals::Vector{Vector{Float64}}
-    rootsvals::Vector{Vector{Int}}
-end
 
 @testset "roots" begin
     # test Schwarzschild
@@ -115,7 +104,7 @@ end
 
 @testset "emission_radius_field" begin
     for radialTestData in readdir((@__DIR__)*"/radialTestData")
-        path = (@__DIR__)*"/radialTestData/"*readdir((@__DIR__)*"/radialTestData")[1]
+        path = (@__DIR__)*"/radialTestData/"*radialTestData
         data = JSON.parsefile(path)
         αmax = data["αmax"]
         βmax = data["βmax"]
@@ -128,7 +117,7 @@ end
         rsvals = data["rsvals"]
         rootsvals = data["rootsvals"]
 
-        testrsvals, testrootsvals = make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
+        testrsvals, testrootsvals = _make_radial_data_field(αmax, βmax, n, a, steps, θs, θo)
         @test begin
              (abs(maximum(maximum.(rsvals .- testrsvals))) < eps())
         end
@@ -138,5 +127,33 @@ end
     end
 end
 
+ @testset "emission_pol_field" begin
+    for polTestData in readdir((@__DIR__)*"/polTestData")
+        path = (@__DIR__)*"/polTestData/"*polTestData
+        data = JSON.parsefile(path)
+        αmax = data["αmax"]
+        βmax = data["βmax"]
+        steps = data["steps"]
+        θo = data["θo"]
+        θs = data["θs"]
+        a = data["a"]
+        n = data["n"]
+        βfluid = data["βfluid"]
+        B = data["B"]
+        sinvals = data["sinvals"]
+        cosvals = data["cosvals"]
 
-    
+
+        _, _, testsinvals, testcosvals = _make_pol_data_field(αmax, βmax, n, a, steps, θs, θo, [i for i in B], [i for i in βfluid])
+
+        @test begin
+             (abs(maximum(maximum.(sinvals .- testsinvals))) < eps())
+        end
+        @test begin
+             (abs(maximum(maximum.(cosvals .- testcosvals))) < eps())
+        end
+
+    end
+end
+
+   
