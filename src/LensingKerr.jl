@@ -75,10 +75,13 @@ function get_roots(η, λ, a)
     
     ξ0 = argmax(real, (C .+ v))  - A/3.
 
-    r1 = (-sqrt(2ξ0) - sqrt(-(2A + 2ξ0 - (√2B)/(√ξ0))))/2
-    r2 = (-sqrt(2ξ0) + sqrt(-(2A + 2ξ0 - (√2B)/(√ξ0))))/2
-    r3 = (sqrt(2ξ0) - sqrt(-(2A + 2ξ0 + (√2B)/(√ξ0))))/2
-    r4 = (sqrt(2ξ0) + sqrt(-(2A + 2ξ0 + (√2B)/(√ξ0))))/2
+    sqrt2ξ0 = sqrt(2ξ0)
+    sqrt2B = √2B
+    sqrtξ0 = sqrt(ξ0)
+    r1 = (-sqrt2ξ0 - sqrt(-(2A + 2ξ0 - (sqrt2B)/(sqrtξ0))))/2
+    r2 = (-sqrt2ξ0 + sqrt(-(2A + 2ξ0 - (sqrt2B)/(sqrtξ0))))/2
+    r3 = (sqrt2ξ0 - sqrt(-(2A + 2ξ0 + (sqrt2B)/(sqrtξ0))))/2
+    r4 = (sqrt2ξ0 + sqrt(-(2A + 2ξ0 + (sqrt2B)/(sqrtξ0))))/2
 
     return r1, r2, r3, r4
 end
@@ -135,13 +138,50 @@ function rs(α, β, θs, θo, a, isindir, n)
     ηtemp = η(α, β, θo, a)
     λtemp = λ(α, θo)
     #τ = Gθ(α, β, a, θs, θo, isindir, n)[1]
-    τ,_ = _Gθ(sign(β), θs, θo, a, isindir, n, ηtemp, λtemp)
+    τ,_,_ = _Gθ(sign(β), θs, θo, a, isindir, n, ηtemp, λtemp)
     if τ != Inf
       return _rs(ηtemp, λtemp, a, τ)
     else 
-      (0., true, 4) 
+      return (0., true, 4) 
     end
 end
+
+function rscumulative!(rsvals, α, β, θs, θo, a, isindir) 
+    n = length(rsvals)
+    if abs(cos(θs)) > abs(cos(θo))
+        αmin = αboundary(a, θs)
+        βbound = (abs(α) >= αmin ? βboundary(α, θo, a, θs) : 0.)
+        if abs(β) < βbound
+          for i in 1:n
+            rsvals[i] = (0., true, 4)
+          end
+        end
+    end
+    ηtemp = η(α, β, θo, a)
+    λtemp = λ(α, θo)
+    #τ = Gθ(α, β, a, θs, θo, isindir, n)[1]
+    τ0, τhat, _ = _Gθ(sign(β), θs, θo, a, isindir, 0, ηtemp, λtemp)
+    if τ0 != Inf
+      τ = τ0
+      currrs = (1000., true, 4)
+      for i in 1:n
+        if currrs[1] != 0.0
+          currrs = _rs(ηtemp, λtemp, a, τ)
+          rsvals[i] = currrs
+          τ += τhat
+        else
+          rsvals[i] = (0., true, 4)
+        end
+      end
+    else
+      for i in 1:n
+        rsvals[i] = (0., true, 4)
+      end
+    end
+    return nothing
+end
+
+
 
 """
   _rs(η, λ, a, τ)
@@ -393,7 +433,7 @@ function _Gθ(signβ, θs, θo, a, isindir, n, η, λ)
   args, argo, k = isvortical ? ((cos(θs)^2 - um)/(up-um), (cos(θo)^2 - um)/(up-um), 1. - m) : (cos(θs)/√(up), cos(θo)/√(up), m)
   if isvortical 
     if (!(0. < argo < 1.) ||  !(0. < args <  1.))
-      return Inf, isvortical
+      return Inf, Ghat, isvortical
     end
     tempfac = 1/√abs(um*a^2)
     Go = ((θs > π/2) ? -1 : 1)*tempfac*Elliptic.F(asin(√argo), k)
@@ -402,7 +442,7 @@ function _Gθ(signβ, θs, θo, a, isindir, n, η, λ)
 
   else
     if !(-1 < args < 1) || !(-1 < argo < 1)
-     return Inf, isvortical
+     return Inf, Ghat, isvortical
     end
     tempfac = 1/√abs(um*a^2)
     Go = tempfac*Elliptic.F(asin(argo), k)
@@ -413,14 +453,14 @@ function _Gθ(signβ, θs, θo, a, isindir, n, η, λ)
   isincone = abs(cos(θs)) < abs(cos(θo))
   νθ =  isincone ? (n%2==1) ⊻ (θo > θs) : !isindir ⊻ (θs > π/2) 
   if isincone && (isindir != ((signβ > 0) ⊻ (θo > π/2) ))
-    return Inf, isvortical
+    return Inf, Ghat, isvortical
   end
   if ((((signβ < 0) ⊻ (θs > π/2)) ⊻ (n%2==1)) && !isincone && !isvortical) || (isvortical && ((θo >= π/2) ⊻ (θs > π/2)))
-    return Inf, isvortical
+    return Inf, Ghat, isvortical
   end
 
   minotime = real(isindir ? (n+1)*Ghat -signβ*Go + (νθ ? 1 : -1)*Gs : n*Ghat - signβ*Go + (νθ ? 1 : -1)*Gs ) #Sign of Go indicates whether the ray is from the forward cone or the rear cone
-  return minotime, isvortical
+  return minotime, Ghat, isvortical
 end 
 
 ##----------------------------------------------------------------------------------------------------------------------
